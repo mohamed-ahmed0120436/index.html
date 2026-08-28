@@ -1,465 +1,116 @@
-<!doctype html>
-<html lang="en">
+<!--
+
+To run this demo, you need to replace 'YOUR_ACCESS_TOKEN' with an access token from ArcGIS that has the correct privileges.
+
+To get started, sign up for a free ArcGIS Location Platform account or an ArcGIS Online account and create developer credentials.
+
+https://developers.arcgis.com/documentation/security-and-authentication/get-started/
+
+-->
+
+<html>
   <head>
+    <meta name="description" content="DevLabs - Get driving directions" />
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-
-    <title>Clustering - advanced configuration | Sample | ArcGIS Maps SDK for JavaScript</title>
-
-    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
-    <script type="module" src="https://js.arcgis.com/5.1/"></script>
-
-
+    <meta
+      name="viewport"
+      content="initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>ArcGIS Developer Guide-Find a route</title>
     <style>
       html,
-      body {
-        height: 100%;
+      body,
+      #viewDiv {
+        padding: 0;
         margin: 0;
+        height: 100%;
+        width: 100%;
       }
-
-      #filter-panel {
-        --calcite-panel-space: 10px;
-        --calcite-panel-background-color: #2b2b2b;
-        overflow: auto;
-        max-height: 90vh;
-        width: 320px;
+      .esri-view .esri-directions {
+        max-height: calc(100vh - 90px) !important;
       }
     </style>
-  </head>
-
-  <body class="calcite-mode-dark">
-    <!-- Note: popup-component-enabled enables the Popup component (beta). See https://developers.arcgis.com/javascript/latest/references/map-components/components/arcgis-map/#popupComponentEnabled for details. -->
-    <arcgis-map popup-component-enabled>
-      <arcgis-zoom slot="top-right"></arcgis-zoom>
-      <arcgis-popup></arcgis-popup>
-         <arcgis-search slot="top-left"></arcgis-search>
-      <arcgis-expand slot="top-right" expanded mode="floating">
-
-        <calcite-panel id="filter-panel">
-            
-          <div slot="header-content">
-            Show power plants with at least <span id="sliderValue"><b>0</b></span> megawatts of capacity
-          </div>
-          <calcite-slider
-            value="0"
-            min="0"
-            max="2000"
-            label-handles
-            label-ticks
-            max-label="2000"
-            min-label="0"
-            ticks="2000"
-          ></calcite-slider>
-          <arcgis-legend></arcgis-legend>
-        </calcite-panel>
-      </arcgis-expand>
-    </arcgis-map>
-
+    <link rel="stylesheet" href="https://js.arcgis.com/5.0/esri/themes/light/main.css" />
+    <script type="module" src="https://js.arcgis.com/5.0"></script>
     <script type="module">
-      const [Map, FeatureLayer] = await $arcgis.import(["@arcgis/core/Map.js", "@arcgis/core/layers/FeatureLayer.js"]);
+      const [
+        esriConfig,
+        Map,
+        MapView,
+        Directions,
+        SimpleMarkerSymbol,
+        RouteLayer,
+        Expand,
+      ] = await $arcgis.import([
+        "@arcgis/core/config.js",
+        "@arcgis/core/Map.js",
+        "@arcgis/core/views/MapView.js",
+        "@arcgis/core/widgets/Directions.js",
+        "@arcgis/core/symbols/SimpleMarkerSymbol.js",
+        "@arcgis/core/layers/RouteLayer.js",
+        "@arcgis/core/widgets/Expand.js",
+      ]);
 
-      const viewElement = document.querySelector("arcgis-map");
-      viewElement.extent = {
-        spatialReference: {
-          latestWkid: 3857,
-          wkid: 102100,
-        },
-        xmin: -42087672,
-        ymin: 4108613,
-        xmax: -36095009,
-        ymax: 8340167,
-      };
+      esriConfig.apiKey = "AAPTa6Kuis50oPDNd6kOBER5V2Q..j2Qb0WfdGRkXUhFiOPrk-JtVChIiiq9ve8UErd0w1Y_xQECFFMo9pCG2DyRmz_hsPWnC6l_xBFKfOsybv6rUBuTwBNpkVvCWcnwgTgL9RlYpmL2wnNANmDEssEl1mSga8CuXrsJk-vA4kog_fDiTHxE4KND6b6ffBFWkKieL8tkTEXst7zaaPhi80DY8qRKwmNFP6Bv4O7mOdZ-h6M1kwljlhWWzc2_Pd2cLJiDQMxMrbtnLlwzweymB0zZyS8NGchmboA..AT1_6L9UUTc5";
 
-      // Configure clustering on the layer with a
-      // popupTemplate displaying the predominant
-      // fuel type of the power plants in the cluster
-      const clusterLabelThreshold = 1500;
-
-      const haloColor = "#373837";
-      const color = "#f0f0f0";
-
-      const clusterConfig = {
-        type: "cluster",
-        popupTemplate: {
-          title: "Cluster summary",
-          content: [
-            {
-              type: "text",
-              text: `
-            This cluster represents <b>{cluster_count}</b> power plants with an average capacity of <b>{cluster_avg_capacity_mw} megawatts</b>.
-            The power plants in this cluster produce a total of <b>{expression/total-mw} megawatts</b> of power.`,
-            },
-            {
-              type: "text",
-              text: "Most power plants in this cluster generate power from <b>{cluster_type_fuel1}</b>.",
-            },
-          ],
-          fieldInfos: [
-            {
-              fieldName: "cluster_count",
-              format: {
-                places: 0,
-                digitSeparator: true,
-              },
-            },
-            {
-              fieldName: "cluster_avg_capacity_mw",
-              format: {
-                places: 2,
-                digitSeparator: true,
-              },
-            },
-            {
-              fieldName: "expression/total-mw",
-              format: {
-                places: 0,
-                digitSeparator: true,
-              },
-            },
-          ],
-          expressionInfos: [
-            {
-              name: "total-mw",
-              title: "total megawatts",
-              expression: "$feature.cluster_avg_capacity_mw * $feature.cluster_count",
-            },
-          ],
-        },
-        // larger radii look better with multiple label classes
-        // smaller radii looks better visually
-        clusterRadius: "120px",
-        labelsVisible: true,
-        labelingInfo: [
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                family: "Noto Sans",
-                size: "11px",
-              },
-              xoffset: 0,
-              yoffset: "-15px",
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: "Text($feature.cluster_count, '#,### plants')",
-            },
-            where: `cluster_avg_capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "2px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "18px",
-              },
-              xoffset: 0,
-              yoffset: 0,
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: "$feature.cluster_type_fuel1",
-            },
-            where: `cluster_avg_capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "12px",
-              },
-              xoffset: 0,
-              yoffset: "15px",
-            },
-            deconflictionStrategy: "none",
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: `
-          var value = $feature.cluster_avg_capacity_mw;
-          var num = Count(Text(Round(value)));
-
-          Decode(num,
-            4, Text(value / Pow(10, 3), "##.0k"),
-            5, Text(value / Pow(10, 3), "##k"),
-            6, Text(value / Pow(10, 3), "##k"),
-            7, Text(value / Pow(10, 6), "##.0m"),
-            Text(value, "#,###")
-          );
-          `,
-            },
-            where: `cluster_avg_capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                family: "Noto Sans",
-                size: "11px",
-              },
-              xoffset: 0,
-              yoffset: "-15px",
-            },
-            labelPlacement: "above-right",
-            labelExpressionInfo: {
-              expression: "Text($feature.cluster_count, '#,### plants')",
-            },
-            where: `cluster_avg_capacity_mw <= ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "2px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "18px",
-              },
-            },
-            labelPlacement: "above-right",
-            labelExpressionInfo: {
-              expression: "$feature.cluster_type_fuel1",
-            },
-            where: `cluster_avg_capacity_mw <= ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "12px",
-              },
-              xoffset: 0,
-              yoffset: 0,
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: `
-          var value = $feature.cluster_avg_capacity_mw;
-          var num = Count(Text(Round(value)));
-
-          Decode(num,
-            4, Text(value / Pow(10, 3), "##.0k"),
-            5, Text(value / Pow(10, 3), "##k"),
-            6, Text(value / Pow(10, 3), "##k"),
-            7, Text(value / Pow(10, 6), "##.0m"),
-            Text(value, "#,###")
-          );
-          `,
-            },
-            where: `cluster_avg_capacity_mw <= ${clusterLabelThreshold}`,
-          },
-        ],
-      };
-
-      const layer = new FeatureLayer({
-        portalItem: {
-          id: "eb54b44c65b846cca12914b87b315169",
-        },
-        featureReduction: clusterConfig,
-        popupEnabled: true,
-        labelsVisible: true,
-        labelingInfo: [
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                family: "Noto Sans",
-                size: "11px",
-              },
-              xoffset: 0,
-              yoffset: "-15px",
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: "$feature.name",
-            },
-            where: `capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "2px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "18px",
-              },
-              xoffset: 0,
-              yoffset: 0,
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: "$feature.fuel1",
-            },
-            where: `capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "12px",
-              },
-              xoffset: 0,
-              yoffset: "15px",
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: `
-          var value = $feature.capacity_mw;
-          var num = Count(Text(Round(value)));
-
-          Decode(num,
-            4, Text(value / Pow(10, 3), "##.0k"),
-            5, Text(value / Pow(10, 3), "##k"),
-            6, Text(value / Pow(10, 3), "##k"),
-            7, Text(value / Pow(10, 6), "##.0m"),
-            Text(value, "#,###")
-          );
-          `,
-            },
-            where: `capacity_mw > ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                family: "Noto Sans",
-                size: "11px",
-              },
-              xoffset: 0,
-              yoffset: "-15px",
-            },
-            labelPlacement: "above-right",
-            labelExpressionInfo: {
-              expression: "$feature.name",
-            },
-            where: `capacity_mw <= ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "2px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "18px",
-              },
-            },
-            labelPlacement: "above-right",
-            labelExpressionInfo: {
-              expression: "$feature.fuel1",
-            },
-            where: `capacity_mw <= ${clusterLabelThreshold}`,
-          },
-          {
-            symbol: {
-              type: "text",
-              haloColor,
-              haloSize: "1px",
-              color,
-              font: {
-                weight: "bold",
-                family: "Noto Sans",
-                size: "12px",
-              },
-              xoffset: 0,
-              yoffset: 0,
-            },
-            labelPlacement: "center-center",
-            labelExpressionInfo: {
-              expression: `
-          var value = $feature.capacity_mw;
-          var num = Count(Text(Round(value)));
-
-          Decode(num,
-            4, Text(value / Pow(10, 3), "##.0k"),
-            5, Text(value / Pow(10, 3), "##k"),
-            6, Text(value / Pow(10, 3), "##k"),
-            7, Text(value / Pow(10, 6), "##.0m"),
-            Text(value, "#,###")
-          );
-          `,
-            },
-            where: `capacity_mw <= ${clusterLabelThreshold}`,
-          },
-        ],
+      const routeLayer = new RouteLayer({
+        url: "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/",
       });
 
       const map = new Map({
-        basemap: {
-          portalItem: {
-            id: "8d91bd39e873417ea21673e0fee87604",
-          },
-        },
-        layers: [layer],
+        basemap: "arcgis/navigation",
+        layers: [routeLayer],
       });
-      viewElement.map = map;
 
-      const layerView = await viewElement.whenLayerView(layer);
-      const renderer = layer.renderer.clone();
-      renderer.visualVariables = [
-        {
-          type: "size",
-          field: "capacity_mw",
-          legendOptions: {
-            title: "Capacity (MW)",
-          },
-          minSize: "24px",
-          maxSize: "100px",
-          minDataValue: 1,
-          maxDataValue: 5000,
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-118.24532, 34.05398],
+        zoom: 12,
+        constraints: {
+          snapToZoom: false,
         },
-      ];
-      layer.renderer = renderer;
-      const field = "capacity_mw";
-
-      // filter features by power plant capacity when the user drags the slider thumb.
-      // If clustering is enabled, clusters will recompute and render based on the number
-      // and type of features that satisfy the filter where clause
-      const slider = document.querySelector("calcite-slider");
-      slider.addEventListener("calciteSliderChange", (event) => {
-        document.getElementById("sliderValue").innerHTML = `<b>${slider.value}</b>`;
-        layerView.filter = {
-          where: `${field} >= ${slider.value}`,
-        };
       });
+
+      const directions = new Directions({
+        view: view,
+        layer: routeLayer,
+      });
+
+      view.ui.add(
+        new Expand({
+          view: view,
+          content: directions,
+          expanded: true,
+        }),
+        "top-right"
+      );
+      
+
+      //  function createStopSymbol(outline, fill, size) {
+      //   return new SimpleMarkerSymbol({
+      //     style: "circle",
+      //     size: size,
+      //     outline: {
+      //       width: "2px",
+      //       color: outline
+      //     },
+      //     color: fill
+      //   });
+      // }
+
+      //  // Stop symbols
+      //   directions.routeStopSymbol.first = createStopSymbol("black","white","12px");
+      //   directions.routeStopSymbol.middle = createStopSymbol("grey","white","10px");
+      //   directions.routeStopSymbol.last = createStopSymbol("white","black","12px");
+
+      // // Route symbol
+      //   directions.directionsLine.width = "5";
+      //   directions.directionsLine.color = [50,150,255,.75];
+      //   directions.directionsLine.style = "solid";
     </script>
-    
+  </head>
+  <body>
+    <div id="viewDiv"></div>
   </body>
 </html>
