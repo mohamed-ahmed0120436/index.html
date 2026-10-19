@@ -1,246 +1,47 @@
-<!--
-
-To run this demo, you need to replace 'YOUR_ACCESS_TOKEN' with an access token from ArcGIS that has the correct privileges.
-
-To get started, sign up for a free ArcGIS Location Platform account or an ArcGIS Online account and create developer credentials.
-
-https://developers.arcgis.com/documentation/security-and-authentication/get-started/
-
--->
-
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>ArcGIS Developer Guide: Display 2D data in 3D</title>
-    <!-- ArcGIS Mapping and Location Services Developer Guide
-    Learn more: https://developers.arcgis.com/documentation/mapping-and-location-services/maps
-    -->
-
-    <link rel="stylesheet" href="https://js.arcgis.com/5.0/esri/themes/light/main.css" />
-    <script type="module" src="https://js.arcgis.com/5.0"></script>
-
-    <style>
-      html,
-      body,
-      #viewDiv {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-
-      #menu {
-        padding: 1em;
-      }
-
-      #menu > div {
-        padding: 0.4em;
-      }
-
-      select {
-        font-family:
-          "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      }
-    </style>
-
-    <script type="module">
-      const [
-        esriConfig,
-        WebScene,
-        SceneView,
-        FeatureLayer,
-        UniqueValueRenderer,
-      ] = await $arcgis.import([
-        "@arcgis/core/config.js",
-        "@arcgis/core/WebScene.js",
-        "@arcgis/core/views/SceneView.js",
-        "@arcgis/core/layers/FeatureLayer.js",
-        "@arcgis/core/renderers/UniqueValueRenderer.js",
-      ]);
-
-      esriConfig.apiKey = "AAPTa6Kuis50oPDNd6kOBER5V2Q..j2Qb0WfdGRkXUhFiOPrk-JtVChIiiq9ve8UErd0w1Y_xQECFFMo9pCG2DyRmz_hsPWnC6l_xBFKfOsybv6rUBuTwBNpkVvCWcnwgTgL9RlYpmL2wnNANmDEssEl1mSga8CuXrsJk-vA4kog_fDiTHxE4KND6b6ffBFWkKieL8tkTEXst7zaaPhi80DY8qRKwmNFP6Bv4O7mOdZ-h6M1kwljlhWWzc2_Pd2cLJiDQMxMrbtnLlwzweymB0zZyS8NGchmboA..AT1_6L9UUTc5";
-      const webscene = new WebScene({
-        portalItem: {
-          id: "4a711462369c4334972dcd39b064d214",
-        },
-      });
-
-      const view = new SceneView({
-        container: "viewDiv",
-        map: webscene,
-        qualityProfile: "high",
-        environment: {
-          lighting: {
-            directShadowsEnabled: true,
-            ambientOcclusionEnabled: true,
-          },
-          atmosphere: {
-            quality: "high",
-          },
-        },
-      });
-
-      //These options can be set on a PathSymbol3DLayer
-      const options = {
-        profile: "quad", //Shape
-        cap: "round",
-        join: "miter",
-        width: 5,
-        height: 30,
-        color: [200, 200, 200],
-        profileRotation: "all",
-      };
-
-      //For transit lines
-      const colors = {
-        A: [255, 0, 16],
-        B: [0, 170, 227],
-        C: [248, 150, 29],
-        D: [0, 166, 63],
-        F1: [189, 239, 133],
-        F2: [189, 239, 133],
-      };
-
-      const transitLayer = new FeatureLayer({
-        url: "http://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/subway_tcl_stations_lines_wgs84/FeatureServer/0",
-        copyright:
-          "Data from <a href='https://data.beta.grandlyon.com/en/datasets/lignes-metro-funiculaire-reseau-transports-commun-lyonnais/info'>Data Grand Lyon - Sytral</a>",
-        elevationInfo: {
-          mode: "relative-to-ground",
-          offset: 10,
-        },
-        title: "Transit lines in Lyon",
-        definitionExpression: "sens='Aller'",
-        outFields: ["*"],
-      });
-      webscene.add(transitLayer);
-
-      //Render unique path symbol for each transit line
-      function renderTransitLayer() {
-        const renderer = new UniqueValueRenderer({
-          field: "ligne",
-        });
-
-        for (let property in colors) {
-          if (colors.hasOwnProperty(property)) {
-            renderer.addUniqueValueInfo({
-              value: property,
-              symbol: {
-                type: "line-3d",
-                symbolLayers: [
-                  {
-                    type: "path",
-                    profile: options.profile,
-                    material: {
-                      color: colors[property],
-                    },
-                    width: options.width,
-                    height: options.height,
-                    join: options.join,
-                    cap: options.cap,
-                    anchor: "bottom",
-                    profileRotation: options.profileRotation,
-                  },
-                ],
-              },
-            });
-          }
-        }
-
-        transitLayer.renderer = renderer;
-      }
-
-      renderTransitLayer();
-
-      //Add event listeners to modify path properties from options
-      const styleSelect = document.getElementById("style");
-      styleSelect.addEventListener("change", (event) => {
-        const value = event.target.value;
-        switch (value) {
-          case "round-tube":
-            options.profile = "circle";
-            options.height = 30;
-            options.width = 30;
-            break;
-          case "square-tube":
-            options.profile = "quad";
-            options.height = 30;
-            options.width = 30;
-            break;
-          case "wall":
-            options.profile = "quad";
-            options.height = 30;
-            options.width = 5;
-            break;
-          case "strip":
-            options.profile = "quad";
-            options.height = 5;
-            options.width = 30;
-            break;
-        }
-        renderTransitLayer(); //re-render the layer
-      });
-
-      const capSelect = document.getElementById("cap");
-      capSelect.addEventListener("change", (event) => {
-        options.cap = event.target.value;
-        renderTransitLayer();
-      });
-
-      const joinSelect = document.getElementById("join");
-      joinSelect.addEventListener("change", (event) => {
-        console.log(event.target.value);
-        options.join = event.target.value;
-        renderTransitLayer();
-      });
-
-      const rotationSelect = document.getElementById("profileRotation");
-      rotationSelect.addEventListener("change", (event) => {
-        options.profileRotation = event.target.value;
-        renderTransitLayer();
-      });
-
-      view.ui.add("menu", "top-right");
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>AI Assistant component (beta) | Sample | ArcGIS Maps SDK for JavaScript</title>
+    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
+    <script type="module" src="https://js.arcgis.com/5.1.14/"></script>
   </head>
 
   <body>
-    <div id="viewDiv" class="esri-widget"></div>
-    <div id="menu" class="esri-widget">
-      <p>Choose path properties:</p>
-      <div>
-        <label for="style">Style</label>
-        <select id="style">
-          <option value="wall">Wall</option>
-          <option value="square-tube">Square tube</option>
-          <option value="round-tube">Round tube</option>
-          <option value="strip">Strip</option>
-        </select>
-      </div>
-      <div>
-        <label for="cap">Cap</label>
-        <select id="cap">
-          <option value="round">Round</option>
-          <option value="butt">Butt</option>
-          <option value="square">Square</option>
-          <option value="none">None</option>
-        </select>
-      </div>
-      <div>
-        <label for="join">Join</label>
-        <select id="join">
-          <option value="miter">Miter</option>
-          <option value="round">Round</option>
-          <option value="bevel">Bevel</option>
-        </select>
-      </div>
-      <div>
-        <label for="profileRotation">Profile rotation</label>
-        <select id="profileRotation">
-          <option value="all">All</option>
-          <option value="heading">Heading</option>
-        </select>
-      </div>
-    </div>
+    <calcite-shell>
+      <arcgis-map id="wheat-map" item-id="c13bffcad4a244a99062e915e9bc1dc3">
+        <arcgis-zoom slot="top-left"></arcgis-zoom>
+        <arcgis-expand slot="top-left">
+          <arcgis-legend></arcgis-legend>
+        </arcgis-expand>
+      </arcgis-map>
+      <calcite-shell-panel slot="panel-end" width="l" id="assistant-panel">
+        <calcite-panel>
+          <arcgis-assistant
+            log-enabled
+            copy-enabled
+            reference-element="#wheat-map"
+            heading="Change in wheat production 2017-2022"
+            description="Explore wheat production in the U.S. from 2017 to 2022."
+            entry-message="Hello! I'm here to help you explore changes in wheat production over the years."
+          >
+            <arcgis-assistant-navigation-agent></arcgis-assistant-navigation-agent>
+            <arcgis-assistant-data-exploration-agent></arcgis-assistant-data-exploration-agent>
+            <arcgis-assistant-help-agent></arcgis-assistant-help-agent>
+          </arcgis-assistant>
+        </calcite-panel>
+      </calcite-shell-panel>
+    </calcite-shell>
+
+    <script type="module">
+      const assistantElement = document.querySelector("arcgis-assistant");
+      const mapElement = document.querySelector("arcgis-map");
+      assistantElement.suggestedPrompts = [
+        "Go to the county that produced the most wheat in 2022.",
+        "How does that compare to the average county that produced wheat?",
+        "How many counties produced less wheat in 2022 than in 2017?",
+      ];
+    </script>
   </body>
 </html>
